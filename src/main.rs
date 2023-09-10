@@ -244,11 +244,11 @@ pub struct host{
 //Note that if you want to adjust the number of zones, you have to, in addition to adjusting the individual values to your liking per zone, also need to change the slice types below!
 //Space
 const LISTOFPROBABILITIES:[f64;2] = [0.8,0.75]; //Probability of transfer of samonella per zone - starting from zone 0 onwards
-const GRIDSIZE:[[f64;3];2] = [[200.0,100.0,50.0],[100.0,100.0,20.0]];
+const GRIDSIZE:[[f64;3];2] = [[200.0,100.0,50.0],[1000.0,1000.0,100.0]];
 const MAX_MOVE:f64 = 25.0;
 const MEAN_MOVE:f64 = 5.0;
 const STD_MOVE:f64 = 10.0;
-const NO_OF_HOSTS_PER_SEGMENT:[u8;2] = [10,3];
+const NO_OF_HOSTS_PER_SEGMENT:[u8;2] = [10,1];
 //Disease 
 const TRANSFER_DISTANCE: f64 = 1.10;//maximum distance over which hosts can trasmit diseases to one another
 //Host parameters
@@ -268,7 +268,7 @@ const FAECAL_CLEANUP_FREQUENCY:usize = 2; //How many times a day do you want fae
 //or do we do time collection instead?
 const TIME_OF_COLLECTION :f64 = 1.0; //Time that the host has spent in the last zone from which you collect ONLY. NOT THE TOTAL TIME SPENT IN SIMULATION
 //Resolution
-const STEP:[[usize;3];2] = [[20,20,1],[4,4,8]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
+const STEP:[[usize;3];2] = [[20,20,1],[10,10,10]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
 const HOUR_STEP: f64 = 1.0; //Number of times hosts move per hour
 const LENGTH: usize = 24; //How long do you want the simulation to be?
 //Influx? Do you want new chickens being fed into the scenario everytime the first zone exports some to the succeeding zones?
@@ -458,11 +458,11 @@ impl host{
             if self.restrict{
                 // println!("We are in the restrict clause! {}", self.motile);
                 // println!("Current shuffling parameter is {}", self.motile);
-                new_x = limits::min(limits::max(self.origin_x as f64,self.x+mult*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE)),(self.origin_x as f64+self.range_x as f64));
-                new_y = limits::min(limits::max(self.origin_y as f64,self.y+mult*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE)),(self.origin_y as f64+self.range_y as f64));
+                new_x = limits::min(limits::max(self.origin_x as f64,self.x)+mult*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE),(self.origin_x as f64+self.range_x as f64));
+                new_y = limits::min(limits::max(self.origin_y as f64,self.y)+mult*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE),(self.origin_y as f64+self.range_y as f64));
             }else{
-                new_x = limits::min(limits::max(0.0,self.x+mult*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE)),GRIDSIZE[self.zone as usize][0]);
-                new_y = limits::min(limits::max(0.0,self.y+mult*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE)),GRIDSIZE[self.zone as usize][1]);        
+                new_x = limits::min(limits::max(0.0,self.x)+mult*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE),GRIDSIZE[self.zone as usize][0]);
+                new_y = limits::min(limits::max(0.0,self.y)+mult*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE),GRIDSIZE[self.zone as usize][1]);        
             }            
             host{infected:self.infected,motile:self.motile,zone:self.zone,prob1:self.prob1,prob2:self.prob2,x:new_x,y:new_y,z:self.z,age:self.age+1.0/HOUR_STEP,time:self.time+1.0/HOUR_STEP,origin_x:self.origin_x,origin_y:self.origin_y,origin_z:self.origin_z,restrict:self.restrict,range_x:self.range_x,range_y:self.range_y,range_z:self.range_z}
         }
@@ -549,13 +549,17 @@ impl host{
                         x.infected = x.transfer();
                         if !before && x.infected {
                             if x.x != 0.0 && x.y != 0.0 {
+                                let mut diagnostic:i8 = 1;
+                                if x.motile>inf.motile{
+                                    diagnostic = -1;
+                                }
                                 // Access properties of 'inf' here
                                 println!(
                                     "{} {} {} {} {} {}",
                                     x.x,
                                     x.y,
                                     x.z,
-                                    (x.motile+1) * (inf.motile+1), // Access 'inf' properties here
+                                    diagnostic*((x.motile+1) as i8) * ((inf.motile+1) as i8), // Access 'inf' properties here
                                     time,
                                     x.zone
                                 );
@@ -752,7 +756,7 @@ fn main(){
 
     //MORE EFFICIENT WAY TO INFECT MORE CHICKENS - insize zone 0
     let zone_to_infect:usize = 0;
-    chickens = host::infect_multiple(chickens,GRIDSIZE[zone_to_infect][0] as u64/2,GRIDSIZE[zone_to_infect][1] as u64/2,GRIDSIZE[zone_to_infect][2] as u64/2,10,0);
+    chickens = host::infect_multiple(chickens,GRIDSIZE[zone_to_infect][0] as u64/2,GRIDSIZE[zone_to_infect][1] as u64/2,GRIDSIZE[zone_to_infect][2] as u64/2,45,0);
 
 
     //Count number of infected
@@ -777,14 +781,19 @@ fn main(){
         if time % (24/FAECAL_CLEANUP_FREQUENCY) ==0{
             chickens = host::cleanup(chickens);
         }        
+        if time%PERIOD_OF_TRANSPORT  as usize==0{
+            host::transport(&mut chickens,&mut zones,influx);
+            // println!("Total number of chickens is {}: Total number of faeces is {}",  chickens.clone().into_iter().filter(|x| x.motile == 0).collect::<Vec<_>>().len() as u64,chickens.clone().into_iter().filter(|x| x.motile == 2).collect::<Vec<_>>().len() as u64)
+        }        
+        let mut collection_counter_fromFinalZone:&mut Zone_3D = &mut zones[GRIDSIZE.len()-1];
+        [chickens,collect] = host::collect__(chickens,&mut collection_counter_fromFinalZone);
+
         for _ in 0..HOUR_STEP as usize{
             // println!("Number of poop is {}",chickens.clone().into_iter().filter(|x| x.motile == 2).collect::<Vec<_>>().len() as u64);
             chickens = host::shuffle_all(chickens); 
             chickens = host::transmit(chickens,time.clone());
         } //Say chickens move/don't move every 15min - 4 times per hour
         chickens = host::deposit_all(chickens);
-        let mut collection_counter_fromFinalZone:&mut Zone_3D = &mut zones[GRIDSIZE.len()-1];
-        [chickens,collect] = host::collect__(chickens,&mut collection_counter_fromFinalZone);
         //Collect the hosts and deposits as according
         // println!("Number of infected eggs in soon to be collection is {}",collect.clone().into_iter().filter(|x| x.motile == 1 && x.infected).collect::<Vec<_>>().len() as f64);
         // feast.append(&mut collect);
@@ -804,10 +813,6 @@ fn main(){
             // println!("Influx just got changed to true");
         }else{
             influx = false;
-        }
-        if time%PERIOD_OF_TRANSPORT  as usize==0{
-            host::transport(&mut chickens,&mut zones,influx);
-            // println!("Total number of chickens is {}: Total number of faeces is {}",  chickens.clone().into_iter().filter(|x| x.motile == 0).collect::<Vec<_>>().len() as u64,chickens.clone().into_iter().filter(|x| x.motile == 2).collect::<Vec<_>>().len() as u64)
         }
         // let mut count:u8 = 0;
         // for i in zones.clone(){
@@ -859,8 +864,11 @@ fn main(){
         // if host::report(&chickens)[2]<5.0{break;}
     }
     wtr.flush().unwrap();
-    println!("{} {} {} {} {} {}",STEP[0][0],STEP[0][1],STEP[0][2],LENGTH,GRIDSIZE.len(), TRANSFER_DISTANCE); //Last 5 lines are going to be zone config lines that need to be picked out in plotter.py
-    println!("{} {} {} {} {} {}",GRIDSIZE[0][0],GRIDSIZE[0][1],GRIDSIZE[0][2],0,0,0); //Last 5 lines are going to be zone config lines that need to be picked out in plotter.py
+    // println!("{} {} {} {} {} {}",STEP[0][0],STEP[0][1],STEP[0][2],LENGTH,GRIDSIZE.len(), TRANSFER_DISTANCE); //Last 5 lines are going to be zone config lines that need to be picked out in plotter.py
+    for zone in 0..GRIDSIZE.len(){
+        println!("{} {} {} {} {} {}",STEP[zone][0],STEP[zone][1],STEP[zone][2],GRIDSIZE[zone][0],GRIDSIZE[zone][1],GRIDSIZE[zone][2]);  //Paramters for R file to extract and plot
+    }
+    // println!("{} {} {} {} {} {}",GRIDSIZE[0][0],GRIDSIZE[0][1],GRIDSIZE[0][2],0,0,0); //Last 5 lines are going to be zone config lines that need to be picked out in plotter.py
     
     // Open a file for writing
     let mut file = File::create("parameters.txt").expect("Unable to create file");
