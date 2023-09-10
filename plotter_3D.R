@@ -44,111 +44,220 @@ y <- as.numeric(sapply(coordinates, "[[", 2))
 altitude <- as.numeric(sapply(coordinates, "[[", 3))
 interaction <- as.numeric(sapply(coordinates, "[[", 4))
 time <- as.numeric(sapply(coordinates, "[[", 5))
-zone<- as.factor(sapply(coordinates, "[[", 6))
+zone<- as.numeric(sapply(coordinates, "[[", 6))
+# print("Zone check")
+# print(zone[length(zone)-5:length(zone)])
 print("Finished read")
 # print(z)
-transfer_distance<-zone[length(zone)-1]
-step_x<-x[length(x)-1]
-step_y<-y[length(y)-1]
-step_z<-altitude[length(altitude)-1]
+transfer_distance<-1.1 ##Manually place this information
 
-x_large<-x[length(x)]
-y_large<-y[length(y)]
-z_large<-altitude[length(altitude)]
+
+# step_x<-x[length(x)-1]
+# step_y<-y[length(y)-1]
+# step_z<-altitude[length(altitude)-1]
+
+# x_large<-x[length(x)]
+# y_large<-y[length(y)]
+# z_large<-altitude[length(altitude)]
 
 scaling_factor<-5
 
-x<-x[-c(length(x)-1,length(x))]
-y<-y[-c(length(y)-1,length(y))]
-altitude<-altitude[-c(length(altitude)-1,length(altitude))]
-interaction<-interaction[-c(length(interaction)-1,length(interaction))]
-time<-time[-c(length(time)-1,length(time))]
-zone<-zone[-c(length(zone)-1,length(zone))]
+# x<-x[-c(length(x)-1,length(x))]
+# y<-y[-c(length(y)-1,length(y))]
+# altitude<-altitude[-c(length(altitude)-1,length(altitude))]
+# interaction<-interaction[-c(length(interaction)-1,length(interaction))]
+# time<-time[-c(length(time)-1,length(time))]
+# zone<-zone[-c(length(zone)-1,length(zone))]
 # Create a data frame for each unique zone value
 zone_unique <- unique(zone)
-data_frames <- list()
+# data_frames <- list()
 
-for (z in zone_unique) {
-  data_frames[[as.character(z)]] <- data.frame(x = x[zone == z], y = y[zone == z])
-}
+# for (z in zone_unique) {
+#   data_frames[[as.character(z)]] <- data.frame(x = x[zone == z], y = y[zone == z])
+# }
 
 
 # custom_colors <- c("#FFE7D3", "#FFBEC3", "#FF878E", "#C4515C")
 
-print(unique(interaction))
+# print(unique(interaction))
 # Create the ggplot2 plot with geom_tile and frame aesthetic
+
+
+
+
+print("Zone unique is ..")
+print(zone_unique)
+N<-length(unique(zone_unique))/2
+count<-1
+
+step_x<-rep(1,N)
+step_y<-rep(1,N)
+step_z<-rep(1,N)
+
+x_large<-rep(1,N)
+y_large<-rep(1,N)
+z_large<-rep(1,N)
+
+
+for (separate_zone in 1:N){
+  step_x[separate_zone]<-x[length(x)-(N-separate_zone)]
+  step_y[separate_zone]<-y[length(y) - (N-separate_zone)]
+  step_z[separate_zone]<-altitude[length(altitude) - (N-separate_zone)]
+  #interaction, time, zone
+  x_large[separate_zone]<-interaction[length(interaction) - (N-separate_zone)]
+  y_large[separate_zone]<-time[length(time) - (N-separate_zone)]
+  z_large[separate_zone]<-zone[length(zone) - (N-separate_zone)]
+
+  print("Step X coord extract is..")
+  print(x[length(x)-(N-separate_zone)])
+}
+
+print("Step parameters are ...")
+print(step_x)
+print(step_y)
+print(step_z)
+
+print("Max param sizes are...")
+print(x_large)
+print(y_large)
+print(z_large)
+
+x<-x[-c((length(x) - N):length(x))]
+y<-y[-c((length(y) - N):length(y))]
+altitude<-altitude[-c((length(altitude) - N):length(altitude))]
+interaction<-interaction[-c((length(interaction) - N):length(interaction))]
+time<-time[-c((length(time) - N):length(time))]
+zone<-zone[-c((length(zone) - N):length(zone))]
+
 data <- data.frame(x = x, y = y, z = altitude,interaction = interaction, time = time, zone = zone)
-data <- data %>% 
-    mutate(interaction = case_when(
-        interaction == 0 ~ "Host 0",
-        interaction == 1 ~ "Host <-> Host",
-        interaction == 2 ~ "Host <-> Egg",
-        interaction == 3 ~ "Host <-> Faeces",
-        interaction == 4 ~ "Egg <-> Egg",
-        interaction == 6 ~ "Egg <-> Faeces",
-        interaction == 9 ~ "Faeces <-> Faeces",
+zone_unique2 <- unique(zone)
+# print("ZONES...")
+# print(zone_unique)
+
+for (separate_zone in zone_unique2){
+  # print(typeof(separate_zone))
+  data_<-subset(data, zone == separate_zone)
+  
+  data_ <- data_ %>% 
+      mutate(interaction = case_when(
+          interaction == 0 ~ "Host 0",
+          interaction == 1 ~ "Host <-> Host",
+          interaction == -2 ~ "Host -> Egg",
+          interaction == -3 ~ "Host -> Faeces",
+          interaction == 4 ~ "Egg <-> Egg",
+          interaction == -6 ~ "Egg -> Faeces",
+          interaction == 9 ~ "Faeces <-> Faeces",
+          interaction == 2 ~ "Egg -> Host",
+          interaction == 3 ~ "Faeces -> Host",
+          interaction == 6 ~ "Faeces -> Egg",
+          TRUE ~ as.character(interaction)
+      ),
+      shapes = case_when(
+        interaction == "Host 0" ~ "square",  
+        interaction == "Host <-> Host" ~ "circle",
+        interaction == "Host -> Egg" ~ "star",
+        interaction == "Host -> Faeces" ~ "hexagram",
+        interaction == "Egg <-> Egg" ~ "x",
+        interaction == "Egg -> Faeces" ~ "star-x",
+        interaction == "Faeces <-> Faeces" ~ "asterisk",
         TRUE ~ as.character(interaction)
-    ),
-    shapes = case_when(
-      interaction == "Host 0" ~ "square",  
-      interaction == "Host <-> Host" ~ "circle",
-      interaction == "Host <-> Egg" ~ "star",
-      interaction == "Host <-> Faeces" ~ "hexagram",
-      interaction == "Egg <-> Egg" ~ "x",
-      interaction == "Egg <-> Faeces" ~ "star-x",
-      interaction == "Faeces <-> Faeces" ~ "asterisk",
-      TRUE ~ as.character(interaction)
-    ))
+      ))
 
-custom_marker_symbols <- list(
-  "Host <-> Host" = "circle",
-  "Host <-> Egg" = "star",
-  "Host <-> Faeces" = "hexagram",
-   "Egg <-> Egg" =  "x",
-   "Egg <-> Faeces" = "star-x",
-   "Faeces <-> Faeces" = "asterisk"
-  # Add more symbols for other unique 'interaction' values if needed
-)
+  custom_marker_symbols <- list(
+    "Host <-> Host" = "circle",
+    "Host <-> Egg" = "star",
+    "Host <-> Faeces" = "hexagram",
+    "Egg <-> Egg" =  "x",
+    "Egg <-> Faeces" = "star-x",
+    "Faeces <-> Faeces" = "asterisk"
+    # Add more symbols for other unique 'interaction' values if needed
+  )
 
 
-# fig <- plot_ly(data, x = ~x, y = ~y, z = ~z, symbol = ~interaction, color = ~time, mode = "markers")
+  # fig <- plot_ly(data, x = ~x, y = ~y, z = ~z, symbol = ~interaction, color = ~time, mode = "markers")
 
-fig <- plot_ly(data, x = ~x, y = ~y, z = ~z, mode = "markers", type = "scatter3d", symbol = ~interaction, 
-               marker = list(
-                 color = ~time,
-                 size = transfer_distance*scaling_factor,
-                 opacity = 0.9,
-                 colorscale = 'Inferno',
-                 colorbar = list(
-                   title = 'Time',
-                   x = 0,
-                   y = 0.5,
-                   thickness = 5,
-                   dtick = 12,
-                   tick0 = 0
-                 ),
-                 text = ~paste("Time: ", time)
-               ))
+  fig <- plot_ly(data_, x = ~x, y = ~y, z = ~z, mode = "markers", type = "scatter3d", symbol = ~interaction, text = ~paste(
+                           '<br>Time:', time, 'hours ','<br> Infection Event Type:',interaction),
+                marker = list(
+                  color = ~time,
+                  size = transfer_distance*scaling_factor,
+                  opacity = 0.9,
+                  colorscale = 'Inferno',
+                  colorbar = list(
+                    title = 'Time',
+                    x = 0,
+                    y = 0.5,
+                    thickness = 5,
+                    dtick = 12,
+                    tick0 = 0
+                  )
+                ))
 
-# Apply the custom color scale to the plot
-# fig$x$data[[1]]$marker$colorscale <- custom_color_scale
-# fig <- fig %>% add_markers()
-fig <- fig %>% layout(scene = list(xaxis = list(title = 'X-Axis',dtick = step_x,range = list(0,x_large)),
-                                 yaxis = list(title = 'Y-Axis',dtick = step_y,range = list(0,y_large)),
-                                 zaxis = list(title = 'Z-Axis',dtick = step_z,range = list(0,z_large)),
-                                 aspectmode = "data"))
+  # Apply the custom color scale to the plot
+  # fig$x$data[[1]]$marker$colorscale <- custom_color_scale
+  # fig <- fig %>% add_markers()
+  print("Using x coord as follows")
+  print("Max x")
+  print(x_large[count])
+  print("Out from ")
+  print(x_large)
+  print("Step x")
+  print(step_x[count])
+  print("Out from")
+  print(step_x)
+  fig <- fig %>% layout(scene = list(xaxis = list(title = 'X-Axis',dtick = step_x[count],range = list(0,x_large[count])),
+                                  yaxis = list(title = 'Y-Axis',dtick = step_y[count],range = list(0,y_large[count])),
+                                  zaxis = list(title = 'Z-Axis',dtick = step_z[count],range = list(0,z_large[count])),
+                                  aspectmode = "manual",aspectratio = list(x = x_large[count],y = y_large[count],z = z_large[count])))
 
-htmlwidgets::saveWidget(as_widget(fig), "animation.html", selfcontained = TRUE)
+  fig<-fig%>%
+  animation_opts(mode = "next",
+                 easing = "exp-in", redraw = FALSE
+  )
+
+  htmlwidgets::saveWidget(as_widget(fig), paste("animation",separate_zone,".html",sep = "_"), selfcontained = TRUE)
+  #Time series plot animation
+  rm(fig)
+
+  fig <- plot_ly(data_, x = ~x, y = ~y, z = ~z, mode = "markers", type = "scatter3d", frame = ~time, symbol=~interaction,text = ~paste(
+                           '<br>Time:', time, 'hours ','<br> Infection Event Type:',interaction),
+                marker = list(
+                  color = ~zone,
+                  size = transfer_distance*scaling_factor,
+                  opacity = 0.9,
+                  colorscale = 'Inferno'
+                ))
+
+  # Apply the custom color scale to the plot
+  # fig$x$data[[1]]$marker$colorscale <- custom_color_scale
+  # fig <- fig %>% add_markers()
+  # fig <- fig %>% layout(scene = list(xaxis = list(title = 'X-Axis',dtick = step_x[separate_zone],range = list(0,x_large[separate_zone])),
+  #                                 yaxis = list(title = 'Y-Axis',dtick = step_y[separate_zone],range = list(0,y_large[separate_zone])),
+  #                                 zaxis = list(title = 'Z-Axis',dtick = step_z[separate_zone],range = list(0,z_large[separate_zone])),
+  #                                 aspectmode = "manual",aspectratio = list(x = x_large[separate_zone],y = y_large[separate_zone],z = z_large[separate_zone])))
+  fig <- fig %>% layout(scene = list(xaxis = list(title = 'X-Axis',dtick = step_x[count],range = list(0,x_large[count])),
+                                  yaxis = list(title = 'Y-Axis',dtick = step_y[count],range = list(0,y_large[count])),
+                                  zaxis = list(title = 'Z-Axis',dtick = step_z[count],range = list(0,z_large[count])),
+                                  aspectmode = "manual",aspectratio = list(x = x_large[count],y = y_large[count],z = z_large[count])))  
+
+  fig<-fig%>%
+  animation_opts(frame = 300,transition = 150,mode = "next",
+                 easing = "sin-in", redraw = TRUE
+  )
+
+  htmlwidgets::saveWidget(as_widget(fig), paste("animation",separate_zone,"time_series",".html",sep = "_"), selfcontained = TRUE)  
 
 
 
 
+  count<-count+1
+}
+
+print("First section generation complete!")
 
 
 
-
-
-fig <- plot_ly(data, x = ~x, y = ~y, z = ~z, mode = "markers", type = "scatter3d", frame = ~time,
+fig <- plot_ly(data, x = ~x, y = ~y, z = ~z, mode = "markers", type = "scatter3d", frame = ~zone,
                marker = list(
                  color = ~time,
                  size = transfer_distance*scaling_factor,
@@ -174,12 +283,7 @@ fig <- fig %>% layout(scene = list(xaxis = list(title = 'X-Axis',dtick = step_x,
                                  aspectmode = 'manual',aspectratio = list(x = x_large,y = y_large,z = z_large)))
 
 
-htmlwidgets::saveWidget(as_widget(fig), "animation__.html", selfcontained = TRUE)
-
-
-
-
-
+htmlwidgets::saveWidget(as_widget(fig), "animation__byzones.html", selfcontained = TRUE)
 
 
 
