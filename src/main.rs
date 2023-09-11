@@ -3,6 +3,8 @@ use rand::distributions::Uniform;
 use rand::distributions::{Distribution, Standard};
 use rand::{thread_rng, Rng};
 use statrs::distribution::{Normal, Poisson, StudentsT, Triangular, Weibull};
+extern crate rayon;
+use rayon::prelude::*;
 
 extern crate serde;
 extern crate serde_json;
@@ -268,7 +270,7 @@ const FAECAL_CLEANUP_FREQUENCY:usize = 2; //How many times a day do you want fae
 //or do we do time collection instead?
 const TIME_OF_COLLECTION :f64 = 1.0; //Time that the host has spent in the last zone from which you collect ONLY. NOT THE TOTAL TIME SPENT IN SIMULATION
 //Resolution
-const STEP:[[usize;3];2] = [[20,20,1],[10,10,10]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
+const STEP:[[usize;3];2] = [[20,10,1],[10,10,10]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
 const HOUR_STEP: f64 = 1.0; //Number of times hosts move per hour
 const LENGTH: usize = 24; //How long do you want the simulation to be?
 //Influx? Do you want new chickens being fed into the scenario everytime the first zone exports some to the succeeding zones?
@@ -416,7 +418,7 @@ impl host{
     fn deposit_all(vector:Vec<host>)->Vec<host>{
         //Below is an example whereby hosts deposit twice a day (fecal matter and laying eggs each once per day as an example)
         let mut vecc:Vec<host> = vector.clone();
-        let mut vecc_into: Vec<host> = vector.clone().into_iter().filter(|x| x.motile==0).collect::<Vec<_>>(); //With this re are RETAINING the hosts and deposits within the original vector
+        let mut vecc_into: Vec<host> = vector.clone().into_par_iter().filter(|x| x.motile==0).collect::<Vec<_>>(); //With this re are RETAINING the hosts and deposits within the original vector
 
         //.map wasn't working so we brute forced a loop
         for ele in vecc_into{
@@ -484,7 +486,7 @@ impl host{
         }
     }
     fn shuffle_all(vector: Vec<host>)->Vec<host>{
-        vector.into_iter().map(|x| x.shuffle()).collect()
+        vector.into_par_iter().map(|x| x.shuffle()).collect()
     }
     fn dist(host1: &host, host2: &host)->bool{
         let diff_x: f64 = host1.x -host2.x;
@@ -530,7 +532,7 @@ impl host{
         // Locate all infected hosts
         let mut cloneof: Vec<host> = inventory.clone();
         cloneof = cloneof
-            .into_iter()
+            .into_par_iter()
             .filter_map(|mut x| {
                 if x.infected {
                     Some(x)
@@ -539,9 +541,9 @@ impl host{
                 }
             })
             .collect();
-        inventory = inventory.into_iter().filter(|x| !x.infected).collect::<Vec<host>>();
+        inventory = inventory.into_par_iter().filter(|x| !x.infected).collect::<Vec<host>>();
         inventory = inventory
-            .into_iter()
+            .into_par_iter()
             .filter_map(|mut x| {
                 for inf in &cloneof {
                     if host::dist(inf, &x) && inf.zone == x.zone {
@@ -575,7 +577,7 @@ impl host{
     }
     
     fn cleanup(inventory:Vec<host>)->Vec<host>{
-        inventory.into_iter().filter_map(|mut x|{
+        inventory.into_par_iter().filter_map(|mut x|{
             if x.motile==2 || (!COLLECT_DEPOSITS && x.motile == 1){ // If host consumable deposits are not desired, treat them as equivalent to faeces to clean up
                 // println!("Cleaning!");
                 None
@@ -790,7 +792,7 @@ fn main(){
 
         for _ in 0..HOUR_STEP as usize{
             // println!("Number of poop is {}",chickens.clone().into_iter().filter(|x| x.motile == 2).collect::<Vec<_>>().len() as u64);
-            chickens = host::shuffle_all(chickens); 
+            chickens = host::shuffle_all(chickens);
             chickens = host::transmit(chickens,time.clone());
         } //Say chickens move/don't move every 15min - 4 times per hour
         chickens = host::deposit_all(chickens);
@@ -798,10 +800,10 @@ fn main(){
         // println!("Number of infected eggs in soon to be collection is {}",collect.clone().into_iter().filter(|x| x.motile == 1 && x.infected).collect::<Vec<_>>().len() as f64);
         // feast.append(&mut collect);
         //Update Collection numbers
-        let no_of_infected_hosts: u64 = collect.clone().into_iter().filter(|x| x.motile == 0 && x.infected).collect::<Vec<_>>().len() as u64;
-        let no_of_hosts: u64 = collect.clone().into_iter().filter(|x| x.motile == 0).collect::<Vec<_>>().len() as u64;
-        let no_of_deposits: u64 = collect.clone().into_iter().filter(|x| x.motile == 1).collect::<Vec<_>>().len() as u64;
-        let no_of_infected_deposits: u64 = collect.clone().into_iter().filter(|x| x.motile == 1 && x.infected).collect::<Vec<_>>().len() as u64;
+        let no_of_infected_hosts: u64 = collect.clone().into_par_iter().filter(|x| x.motile == 0 && x.infected).collect::<Vec<_>>().len() as u64;
+        let no_of_hosts: u64 = collect.clone().into_par_iter().filter(|x| x.motile == 0).collect::<Vec<_>>().len() as u64;
+        let no_of_deposits: u64 = collect.clone().into_par_iter().filter(|x| x.motile == 1).collect::<Vec<_>>().len() as u64;
+        let no_of_infected_deposits: u64 = collect.clone().into_par_iter().filter(|x| x.motile == 1 && x.infected).collect::<Vec<_>>().len() as u64;
 
         hosts_in_collection[0] += no_of_infected_hosts;
         hosts_in_collection[1] += no_of_hosts;
