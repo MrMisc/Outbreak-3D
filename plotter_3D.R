@@ -60,7 +60,7 @@ transfer_distance<-1.1 ##Manually place this information
 # y_large<-y[length(y)]
 # z_large<-altitude[length(altitude)]
 
-scaling_factor<-5
+scaling_factor<-10
 
 # x<-x[-c(length(x)-1,length(x))]
 # y<-y[-c(length(y)-1,length(y))]
@@ -175,22 +175,28 @@ for (separate_zone in zone_unique2){
 
 
   # fig <- plot_ly(data, x = ~x, y = ~y, z = ~z, symbol = ~interaction, color = ~time, mode = "markers")
-
+  print("Maximum data time is")
+  print(max(data_$time))
+  print("Minimum data time is")
+  print(min(data_$time))
   fig <- plot_ly(data_, x = ~x, y = ~y, z = ~z, mode = "markers", type = "scatter3d", symbol = ~interaction, text = ~paste(
                            '<br>Time:', time, 'hours ','<br> Infection Event Type:',interaction),
                 marker = list(
                   color = ~time,
+                  cmin = min(data_$time),
+                  cmax = max(data_$time),                  
                   size = transfer_distance*scaling_factor,
                   opacity = 0.9,
-                  colorscale = 'Inferno',
+                  colorscale=list(c(0, 1), c("#C34A36", "#2F4858")),                 
                   colorbar = list(
-                    title = 'Time',
-                    x = 0,
-                    y = 0.5,
-                    thickness = 5,
-                    dtick = 12,
-                    tick0 = 0
-                  )
+                   title = 'Time',
+                   x = 0,
+                   y = 0.5,
+                   thickness = 5,
+                   dtick = 12,
+                   tick0 = 0
+                 ),
+                  showscale = TRUE
                 ))
 
   # Apply the custom color scale to the plot
@@ -212,7 +218,7 @@ for (separate_zone in zone_unique2){
 
   fig<-fig%>%
   animation_opts(mode = "next",
-                 easing = "exp-in", redraw = FALSE
+                 easing = "elastic-in", redraw = FALSE
   )
 
   htmlwidgets::saveWidget(as_widget(fig), paste("animation",separate_zone,".html",sep = "_"), selfcontained = TRUE)
@@ -220,9 +226,9 @@ for (separate_zone in zone_unique2){
   rm(fig)
 
   fig <- plot_ly(data_, x = ~x, y = ~y, z = ~z, mode = "markers", type = "scatter3d", frame = ~time, symbol=~interaction,text = ~paste(
-                           '<br>Time:', time, 'hours ','<br> Infection Event Type:',interaction),
+                           '<br>Time:', time, 'hours ','<br> Infection Event Type:',interaction, '<br> Zone: ',zone),
                 marker = list(
-                  color = ~zone,
+                  color = "#15798C",
                   size = transfer_distance*scaling_factor,
                   opacity = 0.9,
                   colorscale = 'Inferno'
@@ -242,7 +248,7 @@ for (separate_zone in zone_unique2){
 
   fig<-fig%>%
   animation_opts(frame = 300,transition = 150,mode = "next",
-                 easing = "sin-in", redraw = TRUE
+                 easing = "elastic-in", redraw = TRUE
   )
 
   htmlwidgets::saveWidget(as_widget(fig), paste("animation",separate_zone,"time_series",".html",sep = "_"), selfcontained = TRUE)  
@@ -251,13 +257,15 @@ for (separate_zone in zone_unique2){
 
 
   count<-count+1
+  rm(fig)
 }
 
 print("First section generation complete!")
 
 
 
-fig <- plot_ly(data, x = ~x, y = ~y, z = ~z, mode = "markers", type = "scatter3d", frame = ~zone,
+fig <- plot_ly(data, x = ~x, y = ~y, z = ~z, mode = "markers", type = "scatter3d", frame = ~zone,text = ~paste(
+                           '<br>Time:', time, 'hours ','<br> Infection Event Type:',interaction),
                marker = list(
                  color = ~time,
                  size = transfer_distance*scaling_factor,
@@ -270,16 +278,15 @@ fig <- plot_ly(data, x = ~x, y = ~y, z = ~z, mode = "markers", type = "scatter3d
                    thickness = 5,
                    dtick = 12,
                    tick0 = 0
-                 ),
-                 text = ~paste("Time: ", time)
+                 )
                ))
 
 # Apply the custom color scale to the plot
 # fig$x$data[[1]]$marker$colorscale <- custom_color_scale
 # fig <- fig %>% add_markers()
-fig <- fig %>% layout(scene = list(xaxis = list(title = 'X-Axis',dtick = step_x,range = list(0,x_large)),
-                                 yaxis = list(title = 'Y-Axis',dtick = step_y,range = list(0,y_large)),
-                                 zaxis = list(title = 'Z-Axis',dtick = step_z,range = list(0,z_large)),
+fig <- fig %>% layout(scene = list(xaxis = list(title = 'X-Axis',dtick = max(step_x),range = list(0,max(x_large))),
+                                 yaxis = list(title = 'Y-Axis',dtick = max(step_y),range = list(0,max(y_large))),
+                                 zaxis = list(title = 'Z-Axis',dtick = max(step_z),range = list(0,max(z_large))),
                                  aspectmode = 'manual',aspectratio = list(x = x_large,y = y_large,z = z_large)))
 
 
