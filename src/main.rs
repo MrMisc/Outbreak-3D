@@ -84,70 +84,6 @@ pub fn uniform(start:f64,end:f64)->f64{
     let rollnumber: f64 = rng.sample(roll);
     rollnumber
 }
-// #[derive(Clone)]
-// pub struct Zone{
-//     segments:Vec<Segment>, 
-//     zone:usize,
-//     capacity:u32
-// }
-
-// #[derive(Clone)]
-// pub struct Segment{
-//     zone:usize,
-//     origin_x:u64,
-//     origin_y:u64,
-//     range_x:u64,
-//     range_y:u64,
-//     capacity:u32
-// }
-
-// impl Zone{
-//     fn add(&mut self)->[u64;4]{
-//         // println!("Adding to {}",self.zone);
-//         self.capacity-=1;
-//         let mut origin_x:u64 = 0;
-//         let mut origin_y:u64 = 0;
-//         let mut range_x:u64 = 0;
-//         let mut range_y:u64 = 0;
-//         if let Some(first_space) = self.segments.iter_mut().find(|item| item.capacity >= 1){ //0 occupants 
-//             //Segment capacity update
-//             first_space.capacity -= 1; //add 1 occupant
-//             origin_x = first_space.origin_x;
-//             origin_y = first_space.origin_y;
-//             range_x = first_space.range_x;
-//             range_y = first_space.range_y;
-//         }        
-//         [origin_x,origin_y,range_x,range_y]
-//     }
-//     fn subtract(mut self,x:u64,y:u64)->Zone{
-//         self.capacity+=1;
-//         self.segments = self.segments.into_iter().filter_map(|mut seg| {
-//             if x == seg.origin_x && y == seg.origin_y{
-//                 seg.capacity += 1;
-//             }
-//             Some(seg)
-//         }).collect();
-//         self
-//     }
-//     fn generate_empty(zone:usize,grid:[u64;2],step:usize)->Zone{
-//         let mut vector:Vec<Segment> = Vec::new();
-//         for x in (0..grid[0]).step_by(step){
-//             for y in (0..grid[1]).step_by(step){
-//                 vector.push(Segment{zone:zone.clone(),origin_x:x,origin_y:y,range_x:step.clone() as u64,range_y:step.clone() as u64,capacity:NO_OF_HOSTS_PER_SEGMENT[zone] as u32})
-//             }
-//         }
-//         Zone{segments:vector,zone:zone, capacity:(grid[0] as u32)*(grid[1] as u32)/ ((step*step) as u32)*NO_OF_HOSTS_PER_SEGMENT[zone] as u32}
-//     }
-//     fn generate_full(zone:usize,grid:[u64;2],step:usize)->Zone{
-//         let mut vector:Vec<Segment> = Vec::new();
-//         for x in (0..grid[0]).step_by(step){
-//             for y in (0..grid[1]).step_by(step){
-//                 vector.push(Segment{zone:zone.clone(),origin_x:x,origin_y:y,range_x:step.clone() as u64,range_y:step.clone() as u64,capacity:0})
-//             }
-//         }
-//         Zone{segments:vector,zone:zone, capacity:0}
-//     }    
-// }
 
 #[derive(Clone)]
 pub struct Zone_3D{
@@ -246,11 +182,17 @@ pub struct host{
 //Note that if you want to adjust the number of zones, you have to, in addition to adjusting the individual values to your liking per zone, also need to change the slice types below!
 //Space
 const LISTOFPROBABILITIES:[f64;2] = [0.8,0.75]; //Probability of transfer of samonella per zone - starting from zone 0 onwards
-const GRIDSIZE:[[f64;3];2] = [[200.0,100.0,50.0],[1000.0,1000.0,100.0]];
+const GRIDSIZE:[[f64;3];2] = [[200.0,200.0,50.0],[200.0,200.0,100.0]];
 const MAX_MOVE:f64 = 25.0;
 const MEAN_MOVE:f64 = 5.0;
 const STD_MOVE:f64 = 10.0;
-const NO_OF_HOSTS_PER_SEGMENT:[u8;2] = [10,1];
+const MAX_MOVE_Z:f64 = 12.0;
+const MEAN_MOVE_Z:f64 = 2.0;
+const STD_MOVE_Z:f64 = 4.0;
+const NO_OF_HOSTS_PER_SEGMENT:[u8;2] = [7,1];
+//Fly option
+const FLY:bool = false;
+const FLY_FREQ:u8 = 3; //At which Hour step do the  
 //Disease 
 const TRANSFER_DISTANCE: f64 = 1.10;//maximum distance over which hosts can trasmit diseases to one another
 //Host parameters
@@ -261,7 +203,7 @@ const MAX_AGE:f64 = 11.0*24.0; //Maximum age of host accepted (Note: as of now, 
 const DEFECATION_RATE:f64 = 6.0; //Number times a day host is expected to defecate
 const DEPOSIT_RATE:f64 = 0.00001; //Number of times a day host is expected to deposit a consumable deposit
 //Transfer parameters
-const ages:[f64;2] = [5.0,1.0]; //Time hosts are expected spend in each region minimally
+const ages:[f64;2] = [10.0,1.0]; //Time hosts are expected spend in each region minimally
 //Collection
 const AGE_OF_HOSTCOLLECTION: f64 = 20.0*24.0;  //For instance if you were collecting chickens every 15 days
 const COLLECT_DEPOSITS: bool = false;
@@ -271,7 +213,7 @@ const FAECAL_CLEANUP_FREQUENCY:usize = 2; //How many times a day do you want fae
 const TIME_OF_COLLECTION :f64 = 1.0; //Time that the host has spent in the last zone from which you collect ONLY. NOT THE TOTAL TIME SPENT IN SIMULATION
 //Resolution
 const STEP:[[usize;3];2] = [[20,10,1],[10,10,10]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
-const HOUR_STEP: f64 = 1.0; //Number of times hosts move per hour
+const HOUR_STEP: f64 = 3.0; //Number of times hosts move per hour
 const LENGTH: usize = 24; //How long do you want the simulation to be?
 //Influx? Do you want new chickens being fed into the scenario everytime the first zone exports some to the succeeding zones?
 const INFLUX:bool = true;
@@ -286,6 +228,10 @@ const SPORADICITY:f64 = 4.0; //How many fractions of the dimension of the cage/s
 //Additional 3D parameters
 const FAECAL_DROP:bool = true; //Does faeces potentially drop in terms of depth?
 const PROBABILITY_OF_FAECAL_DROP:f64 = 0.3;
+
+
+
+
 
 impl host{
     fn infect(mut vector:Vec<host>,loc_x:u64,loc_y:u64,loc_z:u64,zone:usize)->Vec<host>{
@@ -443,6 +389,17 @@ impl host{
         }
         vecc
     }
+    fn land(vector:Vec<host>)->Vec<host>{
+        vector.into_par_iter().filter_map(|mut x| {
+            if RESTRICTION{
+                x.z = x.origin_z as f64;
+                Some(x)
+            }else{
+                x.z = 0.0;
+                Some(x)
+            }
+        }).collect()
+    }
     fn shuffle(mut self)->host{
         if self.motile==0{
             //Whether the movement is negative or positive
@@ -454,17 +411,24 @@ impl host{
                 0.4..=0.8 => 1.0,
                 _ => 0.0
             };
-            let mut new_x:f64 = 0.0;
-            let mut new_y:f64 = 0.0;
+            let mut new_x:f64 = self.origin_x.clone() as f64;
+            let mut new_y:f64 = self.origin_y.clone() as f64;
+            let mut new_z:f64 = self.origin_z.clone() as f64;
             //use truncated normal distribution (which has been forced to be normal) in order to change the values of x and y accordingly of the host - ie movement
             if self.restrict{
                 // println!("We are in the restrict clause! {}", self.motile);
                 // println!("Current shuffling parameter is {}", self.motile);
                 new_x = limits::min(limits::max(self.origin_x as f64,self.x)+mult*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE),(self.origin_x as f64+self.range_x as f64));
                 new_y = limits::min(limits::max(self.origin_y as f64,self.y)+mult*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE),(self.origin_y as f64+self.range_y as f64));
+                if FLY{
+                    new_z = limits::min(limits::max(self.origin_z as f64,self.z)+mult*normal(MEAN_MOVE_Z,STD_MOVE_Z,MAX_MOVE_Z),(self.origin_z as f64+self.range_z as f64));
+                }
             }else{
                 new_x = limits::min(limits::max(0.0,self.x)+mult*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE),GRIDSIZE[self.zone as usize][0]);
                 new_y = limits::min(limits::max(0.0,self.y)+mult*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE),GRIDSIZE[self.zone as usize][1]);        
+                if FLY{
+                    new_z = limits::min(limits::max(0.0,self.z)+mult*normal(MEAN_MOVE_Z,STD_MOVE_Z,MAX_MOVE_Z),GRIDSIZE[self.zone as usize][2]);
+                }
             }            
             host{infected:self.infected,motile:self.motile,zone:self.zone,prob1:self.prob1,prob2:self.prob2,x:new_x,y:new_y,z:self.z,age:self.age+1.0/HOUR_STEP,time:self.time+1.0/HOUR_STEP,origin_x:self.origin_x,origin_y:self.origin_y,origin_z:self.origin_z,restrict:self.restrict,range_x:self.range_x,range_y:self.range_y,range_z:self.range_z}
         }
@@ -790,10 +754,13 @@ fn main(){
         let mut collection_counter_fromFinalZone:&mut Zone_3D = &mut zones[GRIDSIZE.len()-1];
         [chickens,collect] = host::collect__(chickens,&mut collection_counter_fromFinalZone);
 
-        for _ in 0..HOUR_STEP as usize{
+        for unit in 0..HOUR_STEP as usize{
             // println!("Number of poop is {}",chickens.clone().into_iter().filter(|x| x.motile == 2).collect::<Vec<_>>().len() as u64);
             chickens = host::shuffle_all(chickens);
             chickens = host::transmit(chickens,time.clone());
+            if FLY && unit != 0 && (unit % FLY_FREQ as usize) == 0{
+                chickens = host::land(chickens);
+            }
         } //Say chickens move/don't move every 15min - 4 times per hour
         chickens = host::deposit_all(chickens);
         //Collect the hosts and deposits as according
