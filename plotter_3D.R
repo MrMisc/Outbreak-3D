@@ -60,7 +60,7 @@ transfer_distance<-1.1 ##Manually place this information
 # y_large<-y[length(y)]
 # z_large<-altitude[length(altitude)]
 
-scaling_factor<-10
+scaling_factor<-3
 
 # x<-x[-c(length(x)-1,length(x))]
 # y<-y[-c(length(y)-1,length(y))]
@@ -111,6 +111,11 @@ for (separate_zone in 1:N){
   print("Step X coord extract is..")
   print(x[length(x)-(N-separate_zone)])
 }
+
+
+
+
+
 
 print("Step parameters are ...")
 print(step_x)
@@ -202,6 +207,8 @@ for (separate_zone in zone_unique2){
   # Apply the custom color scale to the plot
   # fig$x$data[[1]]$marker$colorscale <- custom_color_scale
   # fig <- fig %>% add_markers()
+  #Factor
+  f<-max(x_large[count],y_large[count],z_large[count])/200
   print("Using x coord as follows")
   print("Max x")
   print(x_large[count])
@@ -214,7 +221,7 @@ for (separate_zone in zone_unique2){
   fig <- fig %>% layout(scene = list(xaxis = list(title = 'X-Axis',dtick = step_x[count],range = list(0,x_large[count])),
                                   yaxis = list(title = 'Y-Axis',dtick = step_y[count],range = list(0,y_large[count])),
                                   zaxis = list(title = 'Z-Axis',dtick = step_z[count],range = list(0,z_large[count])),
-                                  aspectmode = "manual",aspectratio = list(x = x_large[count],y = y_large[count],z = z_large[count])))
+                                  aspectmode = "manual",aspectratio = list(x = x_large[count]/f,y = y_large[count]/f,z = z_large[count]/f)))
 
   fig<-fig%>%
   animation_opts(mode = "next",
@@ -222,6 +229,10 @@ for (separate_zone in zone_unique2){
   )
 
   htmlwidgets::saveWidget(as_widget(fig), paste("animation",separate_zone,".html",sep = "_"), selfcontained = TRUE)
+
+
+
+
   #Time series plot animation
   rm(fig)
 
@@ -244,7 +255,7 @@ for (separate_zone in zone_unique2){
   fig <- fig %>% layout(scene = list(xaxis = list(title = 'X-Axis',dtick = step_x[count],range = list(0,x_large[count])),
                                   yaxis = list(title = 'Y-Axis',dtick = step_y[count],range = list(0,y_large[count])),
                                   zaxis = list(title = 'Z-Axis',dtick = step_z[count],range = list(0,z_large[count])),
-                                  aspectmode = "manual",aspectratio = list(x = x_large[count],y = y_large[count],z = z_large[count])))  
+                                  aspectmode = "manual",aspectratio = list(x = x_large[count]/f,y = y_large[count]/f,z = z_large[count]/f)))  
 
   fig<-fig%>%
   animation_opts(frame = 300,transition = 150,mode = "next",
@@ -310,7 +321,6 @@ htmlwidgets::saveWidget(as_widget(fig), "animation__byzones.html", selfcontained
 
 
 
-
 summary_data <- data %>%
   group_by(x, y, zone, time) %>%
   summarise(count = n())
@@ -330,6 +340,50 @@ heatmap_interactive <- ggplotly(heatmap_plot, dynamicTicks = TRUE)
 # Save as HTML using pandoc
 htmlwidgets::saveWidget(heatmap_interactive, "heatmap_output.html", selfcontained = TRUE)
 print("Heatmap generated successfully!")
+
+
+
+
+
+# print("Data interaction column is")
+# print(data$interaction)
+# print("When summarised we get the following")
+
+
+
+# summary_data <- data %>%
+#   group_by(interaction, time) %>%
+#   summarise(count = n()) %>%
+thematic::thematic_on(bg = "#fff6eb", fg = "#005B4B", accent = "#005B4B", font = "Yu Gothic")
+data <- data %>% 
+    mutate(interaction = case_when(
+        interaction == 0 ~ "Host 0",
+        interaction == 1 ~ "Host <-> Host",
+        interaction == -2 ~ "Host -> Egg",
+        interaction == -3 ~ "Host -> Faeces",
+        interaction == 4 ~ "Egg <-> Egg",
+        interaction == -6 ~ "Egg -> Faeces",
+        interaction == 9 ~ "Faeces <-> Faeces",
+        interaction == 2 ~ "Egg -> Host",
+        interaction == 3 ~ "Faeces -> Host",
+        interaction == 6 ~ "Faeces -> Egg",
+        TRUE ~ as.character(interaction)
+    ))
+
+
+
+fig <- ggplot(data, aes(x = time, fill = as.factor(interaction))) +
+  geom_bar(position = "dodge") + facet_grid(.~zone)+
+  labs(title = "Bar Plot of Interaction Counts Over Time", x = "Time", y = "Count")
+
+fig <- ggplotly(fig, dynamicTicks = TRUE)
+
+htmlwidgets::saveWidget(fig, "Histogram.html", selfcontained = TRUE)
+
+
+
+
+
 
 
 # # Create the ggplot2 plot with geom_tile and the custom color scale
