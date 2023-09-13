@@ -182,14 +182,14 @@ pub struct host{
 //Note that if you want to adjust the number of zones, you have to, in addition to adjusting the individual values to your liking per zone, also need to change the slice types below!
 //Space
 const LISTOFPROBABILITIES:[f64;2] = [0.8,0.75]; //Probability of transfer of samonella per zone - starting from zone 0 onwards
-const GRIDSIZE:[[f64;3];2] = [[200.0,200.0,50.0],[200.0,200.0,100.0]];
-const MAX_MOVE:f64 = 25.0;
-const MEAN_MOVE:f64 = 5.0;
-const STD_MOVE:f64 = 10.0;
-const MAX_MOVE_Z:f64 = 12.0;
+const GRIDSIZE:[[f64;3];2] = [[100.0,16.0,4.0],[200.0,200.0,100.0]];
+const MAX_MOVE:f64 = 3.0;
+const MEAN_MOVE:f64 = 2.0;
+const STD_MOVE:f64 = 1.0; // separate movements for Z config
+const MAX_MOVE_Z:f64 = 1.0;
 const MEAN_MOVE_Z:f64 = 2.0;
 const STD_MOVE_Z:f64 = 4.0;
-const NO_OF_HOSTS_PER_SEGMENT:[u8;2] = [7,1];
+const NO_OF_HOSTS_PER_SEGMENT:[u8;2] = [10,1];
 //Fly option
 const FLY:bool = false;
 const FLY_FREQ:u8 = 3; //At which Hour step do the  
@@ -203,7 +203,7 @@ const MAX_AGE:f64 = 11.0*24.0; //Maximum age of host accepted (Note: as of now, 
 const DEFECATION_RATE:f64 = 6.0; //Number times a day host is expected to defecate
 const DEPOSIT_RATE:f64 = 0.00001; //Number of times a day host is expected to deposit a consumable deposit
 //Transfer parameters
-const ages:[f64;2] = [10.0,1.0]; //Time hosts are expected spend in each region minimally
+const ages:[f64;2] = [8.0,1.0]; //Time hosts are expected spend in each region minimally
 //Collection
 const AGE_OF_HOSTCOLLECTION: f64 = 20.0*24.0;  //For instance if you were collecting chickens every 15 days
 const COLLECT_DEPOSITS: bool = false;
@@ -212,8 +212,8 @@ const FAECAL_CLEANUP_FREQUENCY:usize = 2; //How many times a day do you want fae
 //or do we do time collection instead?
 const TIME_OF_COLLECTION :f64 = 1.0; //Time that the host has spent in the last zone from which you collect ONLY. NOT THE TOTAL TIME SPENT IN SIMULATION
 //Resolution
-const STEP:[[usize;3];2] = [[20,10,1],[10,10,10]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
-const HOUR_STEP: f64 = 3.0; //Number of times hosts move per hour
+const STEP:[[usize;3];2] = [[4,4,1],[10,10,10]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
+const HOUR_STEP: f64 = 2.0; //Number of times hosts move per hour
 const LENGTH: usize = 24; //How long do you want the simulation to be?
 //Influx? Do you want new chickens being fed into the scenario everytime the first zone exports some to the succeeding zones?
 const INFLUX:bool = true;
@@ -842,14 +842,33 @@ fn main(){
     // Open a file for writing
     let mut file = File::create("parameters.txt").expect("Unable to create file");
 
+
     // Write constants to the file
     // Space
     writeln!(file, "## Space").expect("Failed to write to file");
+    writeln!(file, "- RESTRICTION: {} (Are the hosts restricted to segments within each zone)", RESTRICTION).expect("Failed to write to file");
     writeln!(file, "- LISTOFPROBABILITIES: {:?} (Probability of transfer of salmonella per zone)", LISTOFPROBABILITIES).expect("Failed to write to file");
     writeln!(file, "- GRIDSIZE: {:?} (Size of the grid)", GRIDSIZE).expect("Failed to write to file");
     writeln!(file, "- MAX_MOVE: {} (Maximum move value)", MAX_MOVE).expect("Failed to write to file");
     writeln!(file, "- MEAN_MOVE: {} (Mean move value)", MEAN_MOVE).expect("Failed to write to file");
     writeln!(file, "- STD_MOVE: {} (Standard deviation of move value)", STD_MOVE).expect("Failed to write to file");
+    writeln!(file, "- MAX_MOVE_Z: {} (Maximum move for vertical motion)", MAX_MOVE_Z).expect("Failed to write to file");
+    writeln!(file, "- MEAN_MOVE_Z: {} (Mean move value for vertical motion)", MEAN_MOVE_Z).expect("Failed to write to file");
+    writeln!(file, "- STD_MOVE_Z: {} (Standard deviation of move value for vertical motion)", STD_MOVE_Z).expect("Failed to write to file");
+    writeln!(file, "- FAECAL DROP: {} (Does faeces potentially fall between segments downwards?)", FAECAL_DROP).expect("Failed to write to file");
+    writeln!(file, "- PROBABILITY OF FAECAL DROP: {} (If yes, what is the probability? -> Poisson hourly rate)", PROBABILITY_OF_FAECAL_DROP).expect("Failed to write to file");
+
+    // Fly configuration
+    writeln!(file, "\n## Flight module").expect("Failed to write to file");
+    writeln!(file, "- FLY: {} (Flight module enabled/disabled)", FLY).expect("Failed to write to file");    
+    writeln!(file, "- FLY_FREQ: {} (Frequency of flight - which HOUR STEP do the hosts land, if at all)", FLY_FREQ).expect("Failed to write to file");    
+
+    // Transfer config
+    writeln!(file, "\n## Transfer Configuration").expect("Failed to write to file");
+    writeln!(file, "- Times Manual Map: {:?} (Times that hosts have to spend in each zone)", ages).expect("Failed to write to file");    
+    writeln!(file, "- Influx?: {} (Did the simulation bring in chickens to process?)", INFLUX).expect("Failed to write to file");     
+    writeln!(file, "- If yes, they were brought in every {} hours", PERIOD_OF_INFLUX).expect("Failed to write to file");        
+    writeln!(file, "- Period of transport rules : {} hours (How many hours until we check to see if hosts need to be moved from zone to zone)", PERIOD_OF_TRANSPORT).expect("Failed to write to file");        
 
     // Disease
     writeln!(file, "\n## Disease").expect("Failed to write to file");
@@ -863,9 +882,13 @@ fn main(){
 
     // Resolution
     writeln!(file, "\n## Resolution").expect("Failed to write to file");
-    writeln!(file, "- STEP: {:?} (Chickens per unit distance)", STEP[0]).expect("Failed to write to file");
+    writeln!(file, "- STEP: {:?} (Chickens per unit distance)", STEP).expect("Failed to write to file");
     writeln!(file, "- HOUR_STEP: {} (Chickens move per hour)", HOUR_STEP).expect("Failed to write to file");
     writeln!(file, "- LENGTH: {} (Simulation duration in hours)", LENGTH).expect("Failed to write to file");
+
+    //Generation
+    writeln!(file, "\n## Generation").expect("Failed to write to file");
+    writeln!(file, "- SPORADICITY: {} ( Bigger number makes the spread of hosts starting point more even per seg)", SPORADICITY).expect("Failed to write to file");
 
 
 }
