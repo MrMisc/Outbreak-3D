@@ -403,14 +403,17 @@ impl host{
     fn shuffle(mut self)->host{
         if self.motile==0{
             //Whether the movement is negative or positive
-            let mut rng = thread_rng();
-            let roll = Uniform::new(0.0, 2.4);
-            let rollnumber: f64 = rng.sample(roll);
-            let mult:f64 = match rollnumber{
-                0.0..=0.4 => -1.0,
-                0.4..=0.8 => 1.0,
-                _ => 0.0
-            };
+            let mut mult:[f64;3] = [0.0,0.0,0.0];
+            for index in 0..mult.len(){
+                if roll(0.33){
+                    if roll(0.5){
+                        mult[index] = 1.0;
+                    }else{
+                        mult[index] = -1.0;
+                    }
+                }
+            }
+
             let mut new_x:f64 = self.origin_x.clone() as f64;
             let mut new_y:f64 = self.origin_y.clone() as f64;
             let mut new_z:f64 = self.origin_z.clone() as f64;
@@ -418,16 +421,16 @@ impl host{
             if self.restrict{
                 // println!("We are in the restrict clause! {}", self.motile);
                 // println!("Current shuffling parameter is {}", self.motile);
-                new_x = limits::min(limits::max(self.origin_x as f64,self.x)+mult*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE),(self.origin_x as f64+self.range_x as f64));
-                new_y = limits::min(limits::max(self.origin_y as f64,self.y)+mult*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE),(self.origin_y as f64+self.range_y as f64));
+                new_x = limits::min(limits::max(self.origin_x as f64,self.x+mult[0]*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE)),(self.origin_x as f64+self.range_x as f64));
+                new_y = limits::min(limits::max(self.origin_y as f64,self.y+mult[1]*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE)),(self.origin_y as f64+self.range_y as f64));
                 if FLY{
-                    new_z = limits::min(limits::max(self.origin_z as f64,self.z)+mult*normal(MEAN_MOVE_Z,STD_MOVE_Z,MAX_MOVE_Z),(self.origin_z as f64+self.range_z as f64));
+                    new_z = limits::min(limits::max(self.origin_z as f64,self.z+mult[2]*normal(MEAN_MOVE_Z,STD_MOVE_Z,MAX_MOVE_Z)),(self.origin_z as f64+self.range_z as f64));
                 }
             }else{
-                new_x = limits::min(limits::max(0.0,self.x)+mult*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE),GRIDSIZE[self.zone as usize][0]);
-                new_y = limits::min(limits::max(0.0,self.y)+mult*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE),GRIDSIZE[self.zone as usize][1]);        
+                new_x = limits::min(limits::max(0.0,self.x+mult[0]*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE)),GRIDSIZE[self.zone as usize][0]);
+                new_y = limits::min(limits::max(0.0,self.y+mult[1]*normal(MEAN_MOVE,STD_MOVE,MAX_MOVE)),GRIDSIZE[self.zone as usize][1]);        
                 if FLY{
-                    new_z = limits::min(limits::max(0.0,self.z)+mult*normal(MEAN_MOVE_Z,STD_MOVE_Z,MAX_MOVE_Z),GRIDSIZE[self.zone as usize][2]);
+                    new_z = limits::min(limits::max(0.0,self.z+mult[2]*normal(MEAN_MOVE_Z,STD_MOVE_Z,MAX_MOVE_Z)),GRIDSIZE[self.zone as usize][2]);
                 }
             }            
             host{infected:self.infected,motile:self.motile,zone:self.zone,prob1:self.prob1,prob2:self.prob2,x:new_x,y:new_y,z:self.z,age:self.age+1.0/HOUR_STEP,time:self.time+1.0/HOUR_STEP,origin_x:self.origin_x,origin_y:self.origin_y,origin_z:self.origin_z,restrict:self.restrict,range_x:self.range_x,range_y:self.range_y,range_z:self.range_z}
